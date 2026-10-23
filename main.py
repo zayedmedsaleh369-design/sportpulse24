@@ -1,41 +1,35 @@
 import os
-import feedparser
-import google.generativeai as genai
 import requests
+import google.generativeai as genai
 
-# إعدادات المدونة والمعرّفات
-BLOG_ID = "1096868669091416564"
-RSS_URL = "https://www.kooora.com/default.aspx?r=rss" # مصدر الأخبار الرياضية
-
-# جلب المفاتيح من بيئة العمل الآمنة في GitHub
+# 1. إعداد مفاتيح الوصول والبيئة
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 BLOGGER_ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN")
+BLOG_ID = os.environ.get("BLOG_ID")  # يمكنك وضع ID مدونتك هنا أو وضعه كمفتاح في Secrets
 
-# تكوين نموذج الذكاء الاصطناعي (Gemini)
+# 2. تهيئة نموذج Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-def fetch_latest_news():
-    """جلب أحدث خبر من ملف الـ RSS"""
-    feed = feedparser.parse(RSS_URL)
-    if not feed.entries:
-        print("لا توجد أخبار جديدة في الـ RSS.")
-        return None, None
-    latest = feed.entries[0]
-    return latest.title, latest.summary
+# 3. صياغة وإنشاء المقال الرياضي
+prompt = """
+أنت محرر رياضي محترف لموقع 'SportPulse24'.
+قم بكتابة مقال إخباري رياضي حصري ومثير باللغة العربية حول أحدث التطورات في كرة القدم العالمية.
+المقال يجب أن يحتوي على:
+- عنوان جذاب ومحفز للقرّاء.
+- مقدمة مشوقة.
+- تفاصيل الخبر بأسلوب صحفي ممتع.
+- خاتمة قصيرة.
 
-def generate_article(title, summary):
-    """توليد مقال رياضي احترافي باستخدام Gemini"""
-    prompt = f"""
-    اكتب مقالاً رياضياً احترافياً، مشوقاً، ومنسقاً بعناية باللغة العربية بناءً على العنوان والملخص التاليين:
-    العنوان: {title}
-    الملخص: {summary}
-    """
+اجعل المخرجات بتنسيق HTML جاهز للنشر (استخدم الأوسمة <h2>, <p>, <strong>).
+ضع العنوان في السطر الأول تماماً بدون أي علامات HTML، ثم اترك سطر فارغ وابدأ بدنه بتنسيق HTML.
+"""
+
+def generate_and_post():
+    print("جاري إنشاء المقال باستخدام Gemini AI...")
     response = model.generate_content(prompt)
-    return response.text
-
-def post_to_blogger(title, content):
-    """نشر المقال مباشرة على Blogger عبر API"""
-    api_url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOG_ID}/posts"
-    headers = {
-        "Authorization": f"Bearer {BLOGGER_ACCESS_   
+    content = response.text.strip()
+    
+    # فصل العنوان عن نص المقال
+    lines = content.split("\n", 1)
+    title = lines[0].replace("#", "").strip()
