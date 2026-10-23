@@ -38,4 +38,4 @@ def post_to_blogger(title, content):
     """نشر المقال مباشرة على Blogger عبر API"""
     api_url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOG_ID}/posts"
     headers = {
-        "Authorization": f"Bearer {BLOGGER_ACCESS_
+        "Authorization": f"Bearer {BLOGGER_ACCESS_   
