@@ -3,18 +3,18 @@ import requests
 import feedparser
 import google.generativeai as genai
 
-# 1. إعداد مفتاح Google Gemini
+# إعداد مفتاح Google Gemini
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# استخدام النموذج المتوافق لتجنب أخطاء 404
+# استخدام النموذج المدعوم
 model = genai.GenerativeModel('gemini-1.5-pro')
 
-# 2. إعداد أسرار Blogger
+# إعداد أسرار Blogger
 BLOG_ID = os.environ.get("BLOG_ID")
 BLOGGER_ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN")
 
-# 3. مصادر RSS للأخبار العاجلة
+# مصادر RSS للأخبار العاجلة
 RSS_FEEDS = [
     "http://feeds.bbci.co.uk/sport/rss.xml",
     "https://www.skysports.com/rss/12040"
@@ -26,7 +26,10 @@ def fetch_latest_news():
         feed = feedparser.parse(feed_url)
         if feed.entries:
             latest = feed.entries[0]
-            return latest.title, latest.summary, latest.link
+            title = latest.title
+            summary = latest.get("summary", "")
+            link = latest.get("link", "")
+            return title, summary, link
     return None, None, None
 
 def generate_article(title, summary):
@@ -39,4 +42,47 @@ def generate_article(title, summary):
     المطلوب:
     1. عنوان عاجل ومحفز للضغط (Clickable & Engaging).
     2. مقدمة مشوقة.
-    3
+    3. تفاصيل الخبر في فقرتين بتنسيق أنيق.
+    4. خاتمة سريعة ووسوم (Hashtags) مخصصة للشبكات الاجتماعية.
+    """
+    response = model.generate_content(prompt)
+    return response.text
+
+def post_to_blogger(title, content):
+    """نشر المقال على مدونة Blogger عبر REST API"""
+    url = f"https://www.googleapis.com/blogspot/v3/blogs/{BLOG_ID}/posts/"
+    headers = {
+        "Authorization": f"Bearer {BLOGGER_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "kind": "blogger#post",
+        "title": title,
+        "content": content
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code == 200:
+        print("✅ تم نشر الخبر بنجاح على المدونة!")
+    else:
+        print(f"❌ فشل النشر: {response.status_code} - {response.text}")
+
+def main():
+    print("🔄 جاري جلب أحدث الأخبار العاجلة عالمياً...")
+    title, summary, link = fetch_latest_news()
+    
+    if not title:
+        print("⚠️ لم يتم العثور على أخبار جديدة.")
+        return
+
+    print(f"📌 جاري صياغة وتحليل الخبر العاجل: {title}")
+    article_text = generate_article(title, summary)
+    
+    # تحويل النص إلى تنسيق HTML بسيط للظهور بشكل منظم على Blogger
+    formatted_content = article_text.replace("\n", "<br>")
+    
+    print("🚀 جاري النشر التلقائي على SportPulse24...")
+    post_to_blogger(title, formatted_content)
+
+if __name__ == "__main__":
+    main()
