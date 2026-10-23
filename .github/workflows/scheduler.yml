@@ -1,9 +1,11 @@
 name: SportPulse24 Pipeline
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    - cron: '0 */6 * * *' # يعمل تلقائياً كل 6 ساعات
-  workflow_dispatch: # يتيح التشغيل اليدوي أيضاً
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   run-pipeline:
