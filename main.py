@@ -7,8 +7,8 @@ import google.generativeai as genai
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# استخدام النموذج المدعوم
-model = genai.GenerativeModel('gemini-1.5-pro')
+# استخدام النموذج المتوافق مع المكتبة الحالية
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # إعداد أسرار Blogger
 BLOG_ID = os.environ.get("BLOG_ID")
