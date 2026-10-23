@@ -1,20 +1,17 @@
 import os
 import requests
 import feedparser
-import google.generativeai as genai
+from google import genai
 
-# إعداد مفتاح Google Gemini
+# 1. إعداد عميل Google Gemini بالمكتبة الجديدة
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-# استخدام النموذج المتوافق مع المكتبة الحالية
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-# إعداد أسرار Blogger
+# 2. إعداد أسرار Blogger
 BLOG_ID = os.environ.get("BLOG_ID")
 BLOGGER_ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN")
 
-# مصادر RSS للأخبار العاجلة
+# 3. مصادر RSS للأخبار العاجلة
 RSS_FEEDS = [
     "http://feeds.bbci.co.uk/sport/rss.xml",
     "https://www.skysports.com/rss/12040"
@@ -45,7 +42,10 @@ def generate_article(title, summary):
     3. تفاصيل الخبر في فقرتين بتنسيق أنيق.
     4. خاتمة سريعة ووسوم (Hashtags) مخصصة للشبكات الاجتماعية.
     """
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model='gemini-2.0-flash',
+        contents=prompt
+    )
     return response.text
 
 def post_to_blogger(title, content):
