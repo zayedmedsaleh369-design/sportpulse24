@@ -3,15 +3,15 @@ import requests
 import feedparser
 from google import genai
 
-# 1. إعداد عميل Google Gemini بالمكتبة الجديدة
+# إعداد عميل Google Gemini بالمكتبة الجديدة
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# 2. إعداد أسرار Blogger
+# إعداد أسرار Blogger
 BLOG_ID = os.environ.get("BLOG_ID")
 BLOGGER_ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN")
 
-# 3. مصادر RSS للأخبار العاجلة
+# مصادر RSS للأخبار العاجلة
 RSS_FEEDS = [
     "http://feeds.bbci.co.uk/sport/rss.xml",
     "https://www.skysports.com/rss/12040"
@@ -43,7 +43,7 @@ def generate_article(title, summary):
     4. خاتمة سريعة ووسوم (Hashtags) مخصصة للشبكات الاجتماعية.
     """
     response = client.models.generate_content(
-        model='gemini-2.0-flash',
+        model='gemini-3.8-flash',
         contents=prompt
     )
     return response.text
