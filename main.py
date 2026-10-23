@@ -1,88 +1,74 @@
 import os
-import requests
-import feedparser
+import json
 from google import genai
+from google.genai import types
+import requests
 
-# إعداد عميل Google Gemini بالمكتبة الجديدة
+# جلب المفاتيح والأسرار من إعدادات GitHub Secrets
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-client = genai.Client(api_key=GEMINI_API_KEY)
+BLOGGER_BLOG_ID = os.environ.get("BLOGGER_BLOG_ID") or os.environ.get("BLOG_ID")
+ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN") or os.environ.get("BLOG")
 
-# إعداد أسرار Blogger
-BLOG_ID = os.environ.get("BLOG_ID")
-BLOGGER_ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN")
-
-# مصادر RSS للأخبار العاجلة
-RSS_FEEDS = [
-    "http://feeds.bbci.co.uk/sport/rss.xml",
-    "https://www.skysports.com/rss/12040"
-]
-
-def fetch_latest_news():
-    """جلب أحدث خبر رياضي من الخلاصات"""
-    for feed_url in RSS_FEEDS:
-        feed = feedparser.parse(feed_url)
-        if feed.entries:
-            latest = feed.entries[0]
-            title = latest.title
-            summary = latest.get("summary", "")
-            link = latest.get("link", "")
-            return title, summary, link
-    return None, None, None
-
-def generate_article(title, summary):
-    """صياغة مقال صحفي احترافي بالذكاء الاصطناعي"""
-    prompt = f"""
-    بصفتك صحفياً رياضياً محترفاً في موقع SportPulse24، قم بصياغة مقال إخباري جذاب باللغة العربية بناءً على الخبر التالي:
-    العنوان الأصلي: {title}
-    الملخص الأصلي: {summary}
-
-    المطلوب:
-    1. عنوان عاجل ومحفز للضغط (Clickable & Engaging).
-    2. مقدمة مشوقة.
-    3. تفاصيل الخبر في فقرتين بتنسيق أنيق.
-    4. خاتمة سريعة ووسوم (Hashtags) مخصصة للشبكات الاجتماعية.
-    """
-    response = client.models.generate_content(
-        model='gemini-3.8-flash',
-        contents=prompt
-    )
-    return response.text
-
-def post_to_blogger(title, content):
-    """نشر المقال على مدونة Blogger عبر REST API"""
-    url = f"https://www.googleapis.com/blogspot/v3/blogs/{BLOG_ID}/posts/"
-    headers = {
-        "Authorization": f"Bearer {BLOGGER_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "kind": "blogger#post",
-        "title": title,
-        "content": content
-    }
-    
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        print("✅ تم نشر الخبر بنجاح على المدونة!")
-    else:
-        print(f"❌ فشل النشر: {response.status_code} - {response.text}")
-
-def main():
-    print("🔄 جاري جلب أحدث الأخبار العاجلة عالمياً...")
-    title, summary, link = fetch_latest_news()
-    
-    if not title:
-        print("⚠️ لم يتم العثور على أخبار جديدة.")
-        return
-
-    print(f"📌 جاري صياغة وتحليل الخبر العاجل: {title}")
-    article_text = generate_article(title, summary)
-    
-    # تحويل النص إلى تنسيق HTML بسيط للظهور بشكل منظم على Blogger
-    formatted_content = article_text.replace("\n", "<br>")
-    
-    print("🚀 جاري النشر التلقائي على SportPulse24...")
-    post_to_blogger(title, formatted_content)
+def fetch_and_publish_latest_news():
+    try:
+        # 1. إعداد عميل الذكاء الاصطناعي والبحث اللحظي
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        
+        prompt = """
+        ابحث في الإنترنت عن أحدث وأبرز الأخبار العاجلة والسياسية والاقتصادية والرياضية والتقنية اليوم.
+        اختر أهم خبر عاجل وبارز الآن، واكتب عنه مقالاً صحفياً احترافياً شاملاً لموقع (SportPulse24).
+        
+        الشروط:
+        1. عنوان جذاب واحترافي.
+        2. محتوى تفصيلي وموضوعي مصاغ بالكامل بلغة HTML (استخدم <h2>, <p>, <ul>, <li>).
+        3. أضف صورة معبرة تناسب الخبر باستخدام وسم HTML (مثل: <img src="https://picsum.photos/800/400" alt="صورة الخبر" style="width:100%; border-radius:8px;">).
+        
+        أريد النتيجة بصيغة JSON حصرياً وبدون أي نصوص إضافية، وتحتوي على:
+        - "title": عنوان المقال
+        - "content": محتوى المقال كامل بلغة HTML
+        - "labels": تصنيف الخبر
+        """
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[{"google_search": {}}],
+                response_mime_type="application/json"
+            ),
+        )
+        
+        text_response = response.text.strip()
+        
+        # تنظيف أي رموز ماركداون إضافية
+        if text_response.startswith("```json"):
+            text_response = text_response[7:]
+        if text_response.endswith("```"):
+            text_response = text_response[:-3]
+            
+        article = json.loads(text_response.strip())
+        
+        # 2. النشر التلقائي في مدونة بلوجر
+        url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "title": article.get("title", "خبر عاجل"),
+            "content": article.get("content", ""),
+            "labels": [article.get("labels", "أخبار عامة")]
+        }
+        
+        res = requests.post(url, headers=headers, json=payload)
+        if res.status_code == 200:
+            print("🎉 تم نشر الخبر العاجل تلقائياً في مدونة SportPulse24 بنجاح!")
+        else:
+            print(f"❌ خطأ أثناء النشر عبر بلوجر: {res.text}")
+            
+    except Exception as e:
+        print(f"⚠️ حدث خطأ مؤقت أثناء التشغيل وسيتم تجاوزه في الجولة القادمة: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    print("🤖 بدأ الروبوت الصحفي العمل تلقائياً لجلب ونشر آخر الأخبار...")
+    fetch_and_publish_latest_news()
