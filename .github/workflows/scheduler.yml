@@ -11,10 +11,15 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - run: pip install -r requirements.txt
-      - run: python main.py
+      - name: Install dependencies directly
+        run: |
+          pip install --upgrade pip
+          pip install feedparser Pillow moviepy==1.0.3 imageio-ffmpeg
+      - name: Run hunter
+        run: python main.py
       - name: Save video
         uses: actions/upload-artifact@v3
         with:
           name: breaking-video
           path: final.mp4
+          if-no-files-found: warn
