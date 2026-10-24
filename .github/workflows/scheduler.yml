@@ -1,32 +1,20 @@
-name: SportPulse24 Pipeline
-
+name: ScorePix Live - Hunter
 on:
-  push:
-    branches: [ main ]
   schedule:
-    - cron: '*/30 * * * *'  # يعمل تلقائياً كل 30 دقيقة
+    - cron: '*/15 * * * *'
   workflow_dispatch:
-
 jobs:
-  run-pipeline:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Run main script
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          BLOGGER_ACCESS_TOKEN: ${{ secrets.BLOGGER_ACCESS_TOKEN }}
-          BLOG_ID: ${{ secrets.BLOG_ID }}
-        run: |
-          python main.py
+          python-version: '3.9'
+      - run: pip install -r requirements.txt
+      - run: python main.py
+      - name: Save video
+        uses: actions/upload-artifact@v3
+        with:
+          name: breaking-video
+          path: final.mp4
