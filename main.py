@@ -1,74 +1,48 @@
-import os
-import json
-from google import genai
-from google.genai import types
-import requests
+import feedparser, os, textwrap
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import ImageClip
 
-# جلب المفاتيح والأسرار من إعدادات GitHub Secrets
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-BLOGGER_BLOG_ID = os.environ.get("BLOGGER_BLOG_ID") or os.environ.get("BLOG_ID")
-ACCESS_TOKEN = os.environ.get("BLOGGER_ACCESS_TOKEN") or os.environ.get("BLOG")
+def fetch_breaking_news():
+    RSS = "https://news.google.com/rss/search?q=football+breaking+when:15m&hl=en-GB&gl=GB&ceid=GB:en"
+    feed = feedparser.parse(RSS)
+    if not feed.entries:
+        return None
+    title = feed.entries[0].title.split(" - ")[0]
+    return title[:80]
 
-def fetch_and_publish_latest_news():
-    try:
-        # 1. إعداد عميل الذكاء الاصطناعي والبحث اللحظي
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        
-        prompt = """
-        ابحث في الإنترنت عن أحدث وأبرز الأخبار العاجلة والسياسية والاقتصادية والرياضية والتقنية اليوم.
-        اختر أهم خبر عاجل وبارز الآن، واكتب عنه مقالاً صحفياً احترافياً شاملاً لموقع (SportPulse24).
-        
-        الشروط:
-        1. عنوان جذاب واحترافي.
-        2. محتوى تفصيلي وموضوعي مصاغ بالكامل بلغة HTML (استخدم <h2>, <p>, <ul>, <li>).
-        3. أضف صورة معبرة تناسب الخبر باستخدام وسم HTML (مثل: <img src="https://picsum.photos/800/400" alt="صورة الخبر" style="width:100%; border-radius:8px;">).
-        
-        أريد النتيجة بصيغة JSON حصرياً وبدون أي نصوص إضافية، وتحتوي على:
-        - "title": عنوان المقال
-        - "content": محتوى المقال كامل بلغة HTML
-        - "labels": تصنيف الخبر
-        """
-        
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[{"google_search": {}}],
-                response_mime_type="application/json"
-            ),
-        )
-        
-        text_response = response.text.strip()
-        
-        # تنظيف أي رموز ماركداون إضافية
-        if text_response.startswith("```json"):
-            text_response = text_response[7:]
-        if text_response.endswith("```"):
-            text_response = text_response[:-3]
-            
-        article = json.loads(text_response.strip())
-        
-        # 2. النشر التلقائي في مدونة بلوجر
-        url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts"
-        headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "title": article.get("title", "خبر عاجل"),
-            "content": article.get("content", ""),
-            "labels": [article.get("labels", "أخبار عامة")]
-        }
-        
-        res = requests.post(url, headers=headers, json=payload)
-        if res.status_code == 200:
-            print("🎉 تم نشر الخبر العاجل تلقائياً في مدونة SportPulse24 بنجاح!")
-        else:
-            print(f"❌ خطأ أثناء النشر عبر بلوجر: {res.text}")
-            
-    except Exception as e:
-        print(f"⚠️ حدث خطأ مؤقت أثناء التشغيل وسيتم تجاوزه في الجولة القادمة: {str(e)}")
+def is_new(title):
+    if not os.path.exists("last_news.txt"):
+        return True
+    with open("last_news.txt","r") as f:
+        return f.read() != title
 
-if __name__ == "__main__":
-    print("🤖 بدأ الروبوت الصحفي العمل تلقائياً لجلب ونشر آخر الأخبار...")
-    fetch_and_publish_latest_news()
+def save_last(title):
+    with open("last_news.txt","w") as f:
+        f.write(title)
+
+def create_image(title):
+    W,H=1080,1920
+    img=Image.new('RGB',(W,H),(0,0,0))
+    draw=ImageDraw.Draw(img)
+    draw.text((W//2,700),"BREAKING",fill=(230,0,35),anchor="mm")
+    draw.rectangle([(100,850,980,860)],fill=(230,0,35))
+    wrapped=textwrap.fill(title.upper(),width=22)
+    draw.text((W//2,1100),wrapped,fill=(255,255,255),anchor="mm",align="center")
+    img.save("breaking.png")
+    return "breaking.png"
+
+def create_video(img_path):
+    clip=ImageClip(img_path).set_duration(9)
+    clip=clip.resize(lambda t: 1+0.05*t)
+    clip.write_videofile("final.mp4",fps=24,codec='libx264')
+    return "final.mp4"
+
+if __name__=="__main__":
+    title=fetch_breaking_news()
+    if title and is_new(title):
+        print(f"NEW: {title}")
+        img=create_image(title)
+        create_video(img)
+        save_last(title)
+    else:
+        print("No new news")
